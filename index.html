@@ -434,11 +434,107 @@
         }
 
         // Wire upload button to hidden file input
+        function rgbToHex(r,g,b){
+            const toHex = (n) => n.toString(16).padStart(2,'0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+        }
+
+        function tryParseLuaQuotes(luaText){
+            // Very small parser: find table entries inside quotes = { ... }
+            const entries = [];
+            const blockRegex = /\{([\s\S]*?)\},?/g;
+            let m;
+            while ((m = blockRegex.exec(luaText)) !== null) {
+                const block = m[1];
+                const getString = (key) => {
+                    const re = new RegExp(key + '\\s*=\\s*"([\\s\\S]*?)"', 'i');
+                    const mm = block.match(re);
+                    if (!mm) return '';
+                    return mm[1].replace(/\\\\n/g, '\n').replace(/\\\\"/g, '"').replace(/\\\\\\\\/g,'\\');
+                };
+                const text = getString('text');
+                const by = getString('by');
+                const font = getString('font') || 'Segoe UI';
+                const alignMatch = block.match(/align\\s*=\\s*"(.*?)"/i);
+                const byAlignMatch = block.match(/byAlign\\s*=\\s*"(.*?)"/i);
+                const colorMatch = block.match(/color\s*=\s*\{\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\}/i);
+                const rgb = colorMatch ? {r: Number(colorMatch[1]), g: Number(colorMatch[2]), b: Number(colorMatch[3])} : {r:0,g:0,b:0};
+                const colourHex = rgbToHex(rgb.r, rgb.g, rgb.b);
+
+                // require at least text
+                if (text) {
+                    entries.push({
+                        quote: text,
+                        byline: by,
+                        fontFamily: font,
+                        colourHex,
+                        quoteAlign: (alignMatch && alignMatch[1]) ? alignMatch[1] : 'left',
+                        bylineAlign: (byAlignMatch && byAlignMatch[1]) ? byAlignMatch[1] : 'right',
+                        createdAt: Date.now()
+                    });
+                }
+            }
+            return entries;
+        }
+
+        function importPackageFromJson(text) {
+            const parsed = JSON.parse(text);
+            if (!Array.isArray(parsed)) throw new Error('JSON must be an array of package items');
+            // Map/validate entries
+            return parsed.map(it => ({
+                quote: String(it.quote || it.text || '').trim(),
+                byline: String(it.byline || it.by || '').trim(),
+                fontFamily: String(it.fontFamily || it.font || 'Segoe UI'),
+                colourHex: String(it.colourHex || it.color || '#000000').toUpperCase(),
+                quoteAlign: String(it.quoteAlign || it.align || 'left'),
+                bylineAlign: String(it.bylineAlign || it.byAlign || 'right'),
+                createdAt: it.createdAt || Date.now()
+            }));
+        }
+
         if (uploadPackageBtn && uploadPackageInput) {
             uploadPackageBtn.addEventListener('click', () => uploadPackageInput.click());
             uploadPackageInput.addEventListener('change', (e) => {
-                // Placeholder: user selected files — you can implement import logic here
-                console.log('Selected files:', e.target.files);
+                const f = e.target.files && e.target.files[0];
+                if (!f) return;
+                const name = f.name || '';
+                const reader = new FileReader();
+                reader.onerror = () => alert('Failed to read file');
+                reader.onload = () => {
+                    const txt = String(reader.result || '');
+                    try {
+                        let imported = [];
+                        if (/\.json$/i.test(name)) {
+                            imported = importPackageFromJson(txt);
+                        } else if (/\.lua$/i.test(name)) {
+                            imported = tryParseLuaQuotes(txt);
+                        } else if (/\.zip$/i.test(name)) {
+                            alert('ZIP import not supported yet.');
+                            return;
+                        } else {
+                            // try JSON first, then Lua
+                            try { imported = importPackageFromJson(txt); }
+                            catch (e) { imported = tryParseLuaQuotes(txt); }
+                        }
+
+                        if (!imported || imported.length === 0) {
+                            alert('No valid entries were found in the selected file.');
+                            return;
+                        }
+
+                        // Merge into existing packageItems
+                        packageItems = packageItems.concat(imported);
+                        savePackage(packageItems);
+                        renderPackageTable();
+                        alert(`Imported ${imported.length} item(s).`);
+                    } catch (err) {
+                        console.error(err);
+                        alert('Failed to import package: ' + err.message);
+                    }
+                };
+                reader.readAsText(f);
+                // clear selection so same file can be re-selected later
+                uploadPackageInput.value = '';
             });
         }
 
