@@ -89,8 +89,7 @@
                                 name="fontColour" value="#ffffff" title="Choose your color">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Add to Package</button>
-                    <button type="file" class="btn btn-secondary">Combine With...</button>
+                    <button type="submit" class="btn btn-primary" id="submitQuoteBtn">Add to Package</button>
                 </form>
             </div>
             <div class="col-6 p-3">
@@ -117,8 +116,40 @@
         <div class="row">
             <div class="col-12 p-3">
                 <!-- Generated -->
-                <h1 class="display-6">Generated Package</h1>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h1 class="display-6 mb-0">Generated Package</h1>
+                    <div>
+                        <input type="file" id="uploadPackageInput" accept=".json,.lua" style="display:none">
+                        <button id="uploadPackageBtn" class="btn btn-secondary">Upload Existing Package</button>
+                    </div>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Quote</th>
+                            <th scope="col">By-Line</th>
+                            <th scope="col">Font</th>
+                            <th scope="col">Colour</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packageTbody">
 
+                    </tbody>
+                </table>
+                <div class="d-flex gap-2 mb-3">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-success">Download Package</button>
+                        <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="visually-hidden">Toggle Dropdown</span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" id="downloadLua">Download Quotes.lua</a></li>
+                        </ul>
+                    </div>
+                    <button id="clearPackage" class="btn btn-outline-danger" type="button">Clear Package</button>
+                </div>
             </div>
         </div>
     </div>
@@ -128,6 +159,8 @@
         crossorigin="anonymous"></script>
 
     <script>
+        const STORAGE_KEY = "rm_quote_package_v1";
+
         const colourInput = document.getElementById("fontColour");
         const colourHex = document.getElementById("colourHex");
         const quoteInput = document.getElementById("quote");
@@ -141,58 +174,278 @@
         const byLineAlignSelect = document.getElementById("byLineAlignmentSelect");
         const darkToggle = document.getElementById("previewDarkMode");
 
-        // Prevent the form from submitting (avoid page reload)
-        const form = document.querySelector('form');
-        if (form) form.addEventListener('submit', (e) => e.preventDefault());
+        const form = document.querySelector("form");
+        const packageTbody = document.getElementById("packageTbody");
+        const downloadLuaBtn = document.getElementById("downloadLua");
+        const clearPackageBtn = document.getElementById("clearPackage");
+        const uploadPackageBtn = document.getElementById("uploadPackageBtn");
+        const uploadPackageInput = document.getElementById("uploadPackageInput");
+
+        // ---------- Helpers ----------
+        function escapeHtml(s) {
+            return String(s)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#39;");
+        }
+
+        function escapeLuaString(s) {
+            return String(s)
+                .replaceAll("\\", "\\\\")
+                .replaceAll("\r\n", "\n")
+                .replaceAll("\r", "\n")
+                .replaceAll("\n", "\\n")
+                .replaceAll('"', '\\"');
+        }
+
+        function hexToRgb(hex) {
+            // expects #RRGGBB
+            const h = (hex || "#000000").replace("#", "");
+            const r = parseInt(h.slice(0, 2), 16);
+            const g = parseInt(h.slice(2, 4), 16);
+            const b = parseInt(h.slice(4, 6), 16);
+            return { r, g, b };
+        }
+
+        function downloadText(filename, text) {
+            const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
 
         function getFontFamilyValue() {
-            const val = (fontSelect && fontSelect.value) ? fontSelect.value : '';
-            return val || 'inherit';
+            const val = (fontSelect && fontSelect.value) ? fontSelect.value : "";
+            // If they chose "Custom font name…" (value=""), fall back to Segoe UI for now.
+            // Later you can add a custom font input if you want.
+            return val || "Segoe UI";
         }
 
-        function updatePreview() {
-            const quote = quoteInput.value || '';
-            const byline = byLineInput.value || '';
-            const colour = (colourInput && colourInput.value) ? colourInput.value : '#000000';
+        function getCurrentFormData() {
+            const quote = (quoteInput.value || "").trim();
+            const byline = (byLineInput.value || "").trim();
+            const colour = (colourInput && colourInput.value) ? colourInput.value : "#000000";
             const fontFamily = getFontFamilyValue();
 
-            // Update rendered preview (visible, styled)
-            previewQuote.textContent = quote ? `"${quote}"` : '';
-            previewByline.textContent = byline ? `— ${byline}` : '';
-
-            // Preserve user line breaks and spacing inside the quote/byline
-            previewQuote.style.whiteSpace = 'pre-wrap';
-            previewByline.style.whiteSpace = 'pre-wrap';
-            previewRendered.style.color = colour;
-            previewRendered.style.fontFamily = fontFamily;
-
-            // Apply alignment to rendered preview elements
-            previewQuote.style.textAlign = (quoteAlignSelect && quoteAlignSelect.value) ? quoteAlignSelect.value : 'left';
-            previewByline.style.textAlign = (byLineAlignSelect && byLineAlignSelect.value) ? byLineAlignSelect.value : 'right';
-
-            // Dark/light background for preview only
-            const dark = darkToggle && darkToggle.checked;
-            previewRendered.style.backgroundColor = dark ? '#111' : '#fff';
-            previewRendered.style.borderColor = dark ? '#444' : '#dee2e6';
+            return {
+                quote,
+                byline,
+                fontFamily,
+                colourHex: colour.toUpperCase(),
+                quoteAlign: (quoteAlignSelect && quoteAlignSelect.value) ? quoteAlignSelect.value : "left",
+                bylineAlign: (byLineAlignSelect && byLineAlignSelect.value) ? byLineAlignSelect.value : "right",
+                createdAt: Date.now()
+            };
         }
 
-        // Set initial colour hex display and preview
-        if (colourHex && colourInput) colourHex.textContent = colourInput.value.toUpperCase();
-        updatePreview();
+        // ---------- Package state ----------
+        function loadPackage() {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+            } catch {
+                return [];
+            }
+        }
 
-        // Wire up listeners for live updates
-        if (quoteInput) quoteInput.addEventListener('input', updatePreview);
-        if (byLineInput) byLineInput.addEventListener('input', updatePreview);
-        if (fontSelect) fontSelect.addEventListener('change', updatePreview);
-        if (quoteAlignSelect) quoteAlignSelect.addEventListener('change', updatePreview);
-        if (byLineAlignSelect) byLineAlignSelect.addEventListener('change', updatePreview);
-        if (darkToggle) darkToggle.addEventListener('change', updatePreview);
-        if (colourInput) {
-            colourInput.addEventListener('input', () => {
-                colourHex.textContent = colourInput.value.toUpperCase();
+        function savePackage(items) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+        }
+
+        let packageItems = loadPackage();
+        let editIndex = null
+
+        // ---------- Preview ----------
+        function updatePreview() {
+            const data = getCurrentFormData();
+
+            previewQuote.textContent = data.quote ? `"${data.quote}"` : "";
+            previewByline.textContent = data.byline ? `— ${data.byline}` : "";
+
+            previewQuote.style.whiteSpace = "pre-wrap";
+            previewByline.style.whiteSpace = "pre-wrap";
+
+            previewRendered.style.color = data.colourHex;
+            previewRendered.style.fontFamily = data.fontFamily;
+
+            previewQuote.style.textAlign = data.quoteAlign;
+            previewByline.style.textAlign = data.bylineAlign;
+
+            const dark = darkToggle && darkToggle.checked;
+            previewRendered.style.backgroundColor = dark ? "#111" : "#fff";
+            previewRendered.style.borderColor = dark ? "#444" : "#dee2e6";
+        }
+
+        // ---------- Table render ----------
+        function renderPackageTable() {
+            if (!packageTbody) return;
+
+            packageTbody.innerHTML = packageItems.map((item, idx) => {
+                const fontPreview = `style="font-family:${escapeHtml(item.fontFamily)}"`;
+                const colorSwatch = `<span class="badge" style="background:${item.colourHex}; border:1px solid rgba(0,0,0,0.2)">${item.colourHex}</span>`;
+
+                return `
+        <tr>
+          <td>${escapeHtml(item.quote)}</td>
+          <td>${escapeHtml(item.byline)}</td>
+          <td ${fontPreview}>${escapeHtml(item.fontFamily)}</td>
+          <td>${colorSwatch}</td>
+          <td class="text-end text-nowrap">
+  <button class="btn btn-sm btn-outline-secondary me-1" data-edit="${idx}">
+    Edit
+  </button>
+  <button class="btn btn-sm btn-outline-danger" data-del="${idx}">
+    Delete
+  </button>
+</td>
+        </tr>
+      `;
+            }).join("");
+
+            // Delete handlers
+            packageTbody.querySelectorAll("[data-del]").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const i = Number(btn.getAttribute("data-del"));
+                    packageItems.splice(i, 1);
+                    savePackage(packageItems);
+                    renderPackageTable();
+                });
+            });
+            // Edit handlers
+            packageTbody.querySelectorAll("[data-edit]").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const i = Number(btn.getAttribute("data-edit"));
+                    loadItemIntoForm(i);
+                });
+            });
+        }
+
+        // ---------- Load item into form for editing ----------
+        function loadItemIntoForm(index) {
+            const item = packageItems[index];
+            if (!item) return;
+
+            editIndex = index;
+
+            // Populate form fields
+            quoteInput.value = item.quote;
+            byLineInput.value = item.byline;
+            fontSelect.value = item.fontFamily || "Segoe UI";
+            colourInput.value = item.colourHex || "#ffffff";
+            quoteAlignSelect.value = item.quoteAlign || "left";
+            byLineAlignSelect.value = item.bylineAlign || "right";
+
+            // Update UI bits
+            if (colourHex) colourHex.textContent = `Hex: ${item.colourHex}`;
+            document.getElementById("submitQuoteBtn").textContent = "Save Changes";
+
+            updatePreview();
+        }
+
+
+        // ---------- Lua export ----------
+        function generateQuotesLua(items) {
+            const lines = [];
+            lines.push("-- Auto-generated by Rainmeter Quote Skin Generator");
+            lines.push("-- Each entry stores quote, byline, font, color (RGB), and alignment");
+            lines.push("quotes = {");
+
+            for (const it of items) {
+                const rgb = hexToRgb(it.colourHex);
+                lines.push(
+                    `  { text="${escapeLuaString(it.quote)}", by="${escapeLuaString(it.byline)}", font="${escapeLuaString(it.fontFamily)}", color={${rgb.r},${rgb.g},${rgb.b}}, align="${escapeLuaString(it.quoteAlign)}", byAlign="${escapeLuaString(it.bylineAlign)}" },`
+                );
+            }
+
+            lines.push("}");
+            lines.push("");
+            return lines.join("\n");
+        }
+
+        // ---------- Wire up ----------
+        if (form) {
+            form.addEventListener("submit", (e) => {
+                e.preventDefault();
+
+                const data = getCurrentFormData();
+                if (!data.quote) return;
+
+                if (editIndex === null) {
+                    // ADD NEW
+                    packageItems.push(data);
+                } else {
+                    // EDIT EXISTING
+                    packageItems[editIndex] = data;
+                    editIndex = null;
+                    document.getElementById("submitQuoteBtn").textContent = "Add to Package";
+                }
+
+                savePackage(packageItems);
+                renderPackageTable();
+
+                // Clear quote fields after save
+                quoteInput.value = "";
+                byLineInput.value = "";
                 updatePreview();
             });
         }
+
+        if (downloadLuaBtn) {
+            downloadLuaBtn.addEventListener("click", (e) => {
+                e.preventDefault(); // stops the # jump
+                
+                if (!packageItems.length) {
+                    alert("No quotes in the package yet.");
+                    return;
+                }
+
+                const lua = generateQuotesLua(packageItems);
+                downloadText("Quotes.lua", lua);
+            });
+        }
+
+
+
+        if (clearPackageBtn) {
+            clearPackageBtn.addEventListener("click", () => {
+                packageItems = [];
+                editIndex = null;
+                savePackage(packageItems);
+                renderPackageTable();
+                document.getElementById("submitQuoteBtn").textContent = "Add to Package";
+            });
+        }
+
+        // Live preview listeners
+        if (quoteInput) quoteInput.addEventListener("input", updatePreview);
+        if (byLineInput) byLineInput.addEventListener("input", updatePreview);
+        if (fontSelect) fontSelect.addEventListener("change", updatePreview);
+        if (quoteAlignSelect) quoteAlignSelect.addEventListener("change", updatePreview);
+        if (byLineAlignSelect) byLineAlignSelect.addEventListener("change", updatePreview);
+        if (darkToggle) darkToggle.addEventListener("change", updatePreview);
+        if (colourInput) {
+            colourInput.addEventListener("input", () => {
+                if (colourHex) colourHex.textContent = `Hex: ${colourInput.value.toUpperCase()}`;
+                updatePreview();
+            });
+        }
+
+        // Wire upload button to hidden file input
+        if (uploadPackageBtn && uploadPackageInput) {
+            uploadPackageBtn.addEventListener('click', () => uploadPackageInput.click());
+            uploadPackageInput.addEventListener('change', (e) => {
+                // Placeholder: user selected files — you can implement import logic here
+                console.log('Selected files:', e.target.files);
+            });
+        }
+
+        // Initial UI sync
+        if (colourHex && colourInput) colourHex.textContent = `Hex: ${colourInput.value.toUpperCase()}`;
+        updatePreview();
+        renderPackageTable();
     </script>
 </body>
 
