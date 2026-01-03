@@ -1,108 +1,116 @@
 -- quotes.lua
--- Auto-generated style template for your Rainmeter Quote Skin
+-- Rainmeter Quote Skin script
 -- Exposes: Initialize(), GetQuote(), Update()
---
--- Expected by your quotes.ini:
---   [MeasureQuotes]
---   Measure=Script
---   ScriptFile=#@#Scripts\quotes.lua
---
--- And called via:
---   OnRefreshAction=[!CommandMeasure MeasureQuotes "GetQuote()"]
 
--- Replace or extend this table with your generated quotes.
--- Each entry supports:
---   text      (string, required)
---   by        (string, optional)
---   font      (string, optional)  e.g. "Segoe UI", "Segoe Script"
---   color     (table, optional)   {r,g,b}
---   align     (string, optional)  "left"|"center"|"right"|"justify"
---   byAlign   (string, optional)  "left"|"center"|"right"
+-- IMPORTANT:
+-- Avoid curly quotes (’ “ ”) in strings unless you're 100% sure Rainmeter is reading UTF-8 correctly.
+-- Use straight quotes/apostrophes instead: ' and ".
+
 quotes = quotes or {
   {
-    text = 'Enjoy the butterflies. Enjoy being naive. Enjoy the nerves, the pressure, people not knowing your name, all that stuff.',
-    by = "Daniel Ricciardo",
+    text = "If you no longer go for a gap that exists, you're no longer a racing driver.",
+    by = "Ayrton Senna",
     font = "Segoe Script",
     color = {255, 255, 255},
-    align = "left",
-    byAlign = "left"
+    align = "center",   -- left | center | right | justify
+    byAlign = "center"  -- left | center | right
   }
 }
 
-local function clampAlign(a)
-  if a == "left" or a == "center" or a == "right" or a == "justify" then return a end
-  return "left"
-end
-
-local function clampByAlign(a)
-  if a == "left" or a == "center" or a == "right" then return a end
-  return "right"
+local function safeNumber(v, fallback)
+  local n = tonumber(v)
+  if n == nil then return fallback end
+  return n
 end
 
 local function safeColor(c)
-  if type(c) == "table" and tonumber(c[1]) and tonumber(c[2]) and tonumber(c[3]) then
-    local r = math.floor(tonumber(c[1]) or 255)
-    local g = math.floor(tonumber(c[2]) or 255)
-    local b = math.floor(tonumber(c[3]) or 255)
+  if type(c) == "table" then
+    local r = math.floor(safeNumber(c[1], 255))
+    local g = math.floor(safeNumber(c[2], 255))
+    local b = math.floor(safeNumber(c[3], 255))
     if r < 0 then r = 0 elseif r > 255 then r = 255 end
-    if g < 0 then g = 0 elseif g > 255 then g = 255 end
+    if g < 0 then g = 0 elseif g > 255 then g = 0 elseif g > 255 then g = 255 end
     if b < 0 then b = 0 elseif b > 255 then b = 255 end
     return r, g, b
   end
   return 255, 255, 255
 end
 
+local function toTopAlign(a, default)
+  a = (a or default or "left"):lower()
+  if a == "center" then return "CenterTop" end
+  if a == "right" then return "RightTop" end
+  -- Rainmeter doesn't really support "justify" as a StringAlign mode.
+  -- We'll keep it as LeftTop so it renders consistently.
+  return "LeftTop"
+end
+
+local function computeXPos(alignTop, baseX, width)
+  if alignTop == "CenterTop" then return baseX + (width / 2) end
+  if alignTop == "RightTop" then return baseX + width end
+  return baseX
+end
+
 local function chooseQuoteIndex()
   local n = #quotes
   if n <= 0 then return nil end
 
-  -- Day-of-year rotation (1..366). This matches your generator logic.
+  -- Day-of-year rotation
   local day = tonumber(os.date("%j")) or 1
   local idx = (day % n) + 1
   return idx
 end
 
 function Initialize()
-  -- You can preload a quote here if you want, but your INI already calls GetQuote() on refresh.
+  -- You can call GetQuote() here too, but OnRefreshAction already does it.
 end
 
 function GetQuote()
+  local baseX = safeNumber(SKIN:GetVariable("QuoteX"), 20)
+  local width = safeNumber(SKIN:GetVariable("QuoteW"), 520)
+
   if type(quotes) ~= "table" or #quotes == 0 then
     SKIN:Bang("!SetVariable", "QuoteText", "No quotes found.")
     SKIN:Bang("!SetVariable", "QuoteAuthor", "")
-    SKIN:Bang("!SetVariable", "QuoteFont", "Segoe UI")
-    SKIN:Bang("!SetVariable", "QuoteColor", "255,255,255")
-    SKIN:Bang("!SetVariable", "QuoteSize", "26")
-    SKIN:Bang("!SetVariable", "QuoteAlign", "left")
-    SKIN:Bang("!SetVariable", "QuoteByAlign", "right")
+    SKIN:Bang("!SetVariable", "QuoteFont", SKIN:GetVariable("DefaultFont") or "Segoe UI")
+    SKIN:Bang("!SetVariable", "QuoteSize", SKIN:GetVariable("DefaultSize") or "28")
+    SKIN:Bang("!SetVariable", "QuoteColor", SKIN:GetVariable("DefaultColor") or "255,255,255")
+    SKIN:Bang("!SetVariable", "QuoteAlign", "LeftTop")
+    SKIN:Bang("!SetVariable", "QuoteByAlign", "LeftTop")
+    SKIN:Bang("!SetVariable", "QuoteXPos", tostring(baseX))
+    SKIN:Bang("!SetVariable", "ByXPos", tostring(baseX))
   else
     local idx = chooseQuoteIndex()
     local q = quotes[idx] or quotes[1]
 
     local text = q.text or ""
     local by = q.by or ""
-    local font = q.font or "Segoe Script"
+    local font = q.font or (SKIN:GetVariable("DefaultFont") or "Segoe UI")
     local r, g, b = safeColor(q.color)
-    local align = clampAlign(q.align)
-    local byAlign = clampByAlign(q.byAlign)
 
-    -- Set variables used by your meters
+    local quoteAlignTop = toTopAlign(q.align, "left")
+    local byAlignTop = toTopAlign(q.byAlign, "left")
+
+    local quoteXPos = computeXPos(quoteAlignTop, baseX, width)
+    local byXPos = computeXPos(byAlignTop, baseX, width)
+
     SKIN:Bang("!SetVariable", "QuoteText", text)
     SKIN:Bang("!SetVariable", "QuoteAuthor", by)
     SKIN:Bang("!SetVariable", "QuoteFont", font)
+    SKIN:Bang("!SetVariable", "QuoteSize", SKIN:GetVariable("DefaultSize") or "28")
     SKIN:Bang("!SetVariable", "QuoteColor", string.format("%d,%d,%d", r, g, b))
-    SKIN:Bang("!SetVariable", "QuoteSize", "26")
-    SKIN:Bang("!SetVariable", "QuoteAlign", align)
-    SKIN:Bang("!SetVariable", "QuoteByAlign", byAlign)
+    SKIN:Bang("!SetVariable", "QuoteAlign", quoteAlignTop)
+    SKIN:Bang("!SetVariable", "QuoteByAlign", byAlignTop)
+    SKIN:Bang("!SetVariable", "QuoteXPos", tostring(quoteXPos))
+    SKIN:Bang("!SetVariable", "ByXPos", tostring(byXPos))
   end
 
-  -- Force the meters to refresh after changing variables
+  -- Force meters to refresh after variable changes
   SKIN:Bang("!UpdateMeter", "MeterQuote")
   SKIN:Bang("!UpdateMeter", "MeterAuthor")
   SKIN:Bang("!Redraw")
 end
 
 function Update()
-  -- Return a number; Rainmeter expects this.
   return 0
 end
