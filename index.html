@@ -89,6 +89,11 @@
                                 name="fontColour" value="#ffffff" title="Choose your color">
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <label for="maxWidth" class="form-label">Max Characters per Line: <span id="maxWidthValue">75</span></label>
+                        <input type="range" class="form-range" id="maxWidth" name="maxWidth" value="75" min="25" max="150" step="5">
+                        <div class="form-text">Adjusts the estimated maximum characters per line for text wrapping in the preview.</div>
+                    </div>
                     <button type="submit" class="btn btn-primary" id="submitQuoteBtn">Add to Package</button>
                 </form>
             </div>
@@ -103,7 +108,7 @@
                     <label for="previewRendered" class="form-label">Rendered Preview:</label>
                     <div id="previewRendered" class="p-3 border rounded" style="min-height:120px;">
                         <div class="d-flex justify-content-center align-items-center h-100">
-                            <div id="previewContent" style="width:100%; max-width:600px;">
+                            <div id="previewContent" style="width:100%;">
                                 <div id="previewQuote" style="font-size:1.25rem;"></div>
                                 <div id="previewByline" style="margin-top:0.75rem; opacity:0.9"></div>
                             </div>
@@ -146,9 +151,40 @@
                         </button>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="#" id="downloadLua">Download Quotes.lua</a></li>
+                            <li><a class="dropdown-item" href="#" id="downloadIni">Download quotes.ini</a></li>
                         </ul>
                     </div>
                     <button id="clearPackage" class="btn btn-outline-danger" type="button">Clear Package</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Download Modal -->
+    <div class="modal fade" id="downloadModal" tabindex="-1" aria-labelledby="downloadModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="downloadModalLabel">Download Complete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Your Rainmeter Quote Skin package has been downloaded as <code>RainmeterQuoteSkin.zip</code>.</p>
+                    <p><strong>If Windows Defender or your antivirus blocked the extraction:</strong></p>
+                    <ol>
+                        <li>Locate the downloaded ZIP file in your Downloads folder.</li>
+                        <li>Right-click the file and select "Properties".</li>
+                        <li>On the General tab, check the "Unblock" box at the bottom.</li>
+                        <li>Click "Apply" then "OK".</li>
+                        <li>Try extracting the ZIP file again.</li>
+                    </ol>
+                    <ol>
+                        <li>Alternatively, extract the ZIP file manually using a third-party tool like 7-Zip or WinRAR.</li>
+                    </ol>
+                    <p>After extraction, copy the folder containing <code>quotes.ini</code> and <code>quotes.lua</code> to your Rainmeter Skins folder (or create a new folder for them).</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -227,10 +263,13 @@ Rainmeter Quote Skin Generator
         const quoteInput = document.getElementById("quote");
         const byLineInput = document.getElementById("byLine");
         const fontSelect = document.getElementById("fontName");
+        const maxWidthInput = document.getElementById("maxWidth");
+        const maxWidthValue = document.getElementById("maxWidthValue");
 
         const previewQuote = document.getElementById("previewQuote");
         const previewByline = document.getElementById("previewByline");
         const previewRendered = document.getElementById("previewRendered");
+        const previewContent = document.getElementById("previewContent");
         const quoteAlignSelect = document.getElementById("quoteAlignmentSelect");
         const byLineAlignSelect = document.getElementById("byLineAlignmentSelect");
         const darkToggle = document.getElementById("previewDarkMode");
@@ -339,6 +378,12 @@ Rainmeter Quote Skin Generator
             const dark = darkToggle && darkToggle.checked;
             previewRendered.style.backgroundColor = dark ? "#111" : "#fff";
             previewRendered.style.borderColor = dark ? "#444" : "#dee2e6";
+
+            // Update max width based on character count
+            if (previewContent && maxWidthInput) {
+                const charWidth = 8; // approximate pixels per character
+                previewContent.style.maxWidth = (maxWidthInput.value * charWidth) + 'px';
+            }
         }
 
         // ---------- Table render ----------
@@ -485,6 +530,14 @@ Rainmeter Quote Skin Generator
             });
         }
 
+        const downloadIniBtn = document.getElementById("downloadIni");
+        if (downloadIniBtn) {
+            downloadIniBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                downloadText("quotes.ini", INI_CONTENT);
+            });
+        }
+
         if (downloadPackageBtn) {
             downloadPackageBtn.addEventListener("click", async (e) => {
                 e.preventDefault();
@@ -508,13 +561,21 @@ Rainmeter Quote Skin Generator
                     zip.file("quotes.ini", INI_CONTENT);
                     zip.file("README.txt", README_CONTENT);
 
-                    const zipBlob = await zip.generateAsync({ type: "blob" });
+                    const zipBlob = await zip.generateAsync({
+                        type: "blob",
+                        compression: "DEFLATE",
+                        compressionOptions: { level: 6 }
+                    });
                     const url = URL.createObjectURL(zipBlob);
                     const a = document.createElement("a");
                     a.href = url;
                     a.download = "RainmeterQuoteSkin.zip";
                     a.click();
                     URL.revokeObjectURL(url);
+
+                    // Show modal with instructions
+                    const modal = new bootstrap.Modal(document.getElementById('downloadModal'));
+                    modal.show();
                 } catch (error) {
                     console.error("Error generating ZIP:", error);
                     alert("Error generating package: " + error.message);
@@ -547,6 +608,10 @@ Rainmeter Quote Skin Generator
                 updatePreview();
             });
         }
+        if (maxWidthInput) maxWidthInput.addEventListener("input", () => {
+            if (maxWidthValue) maxWidthValue.textContent = maxWidthInput.value;
+            updatePreview();
+        });
 
         // Wire upload button to hidden file input
         function rgbToHex(r, g, b) {
@@ -655,6 +720,7 @@ Rainmeter Quote Skin Generator
 
         // Initial UI sync
         if (colourHex && colourInput) colourHex.textContent = `Hex: ${colourInput.value.toUpperCase()}`;
+        if (maxWidthValue && maxWidthInput) maxWidthValue.textContent = maxWidthInput.value;
         updatePreview();
         renderPackageTable();
     </script>
