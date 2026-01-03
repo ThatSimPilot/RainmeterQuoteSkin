@@ -4,7 +4,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Rainmeter Quote Skin Generator</title>
+    <meta name="description"
+        content="Generate custom quotes for your Rainmeter skin with fonts, colors, and alignments.">
+    <meta name="author" content="ThatSimPilot">
+    <title>Rainmeter Quote Skin Generator - ThatSimPilot</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
 </head>
@@ -90,9 +93,12 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label for="maxWidth" class="form-label">Max Characters per Line: <span id="maxWidthValue">75</span></label>
-                        <input type="range" class="form-range" id="maxWidth" name="maxWidth" value="75" min="25" max="150" step="5">
-                        <div class="form-text">Adjusts the estimated maximum characters per line for text wrapping in the preview.</div>
+                        <label for="maxWidth" class="form-label">Max Characters per Line: <span
+                                id="maxWidthValue">75</span></label>
+                        <input type="range" class="form-range" id="maxWidth" name="maxWidth" value="75" min="25"
+                            max="150" step="5">
+                        <div class="form-text">Adjusts the estimated maximum characters per line for text wrapping in
+                            the preview.</div>
                     </div>
                     <button type="submit" class="btn btn-primary" id="submitQuoteBtn">Add to Package</button>
                 </form>
@@ -150,7 +156,7 @@
                             <span class="visually-hidden">Toggle Dropdown</span>
                         </button>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#" id="downloadLua">Download Quotes.lua</a></li>
+                            <li><a class="dropdown-item" href="#" id="downloadLua">Download quotes.lua</a></li>
                             <li><a class="dropdown-item" href="#" id="downloadIni">Download quotes.ini</a></li>
                         </ul>
                     </div>
@@ -177,11 +183,12 @@
                         <li>On the General tab, check the "Unblock" box at the bottom.</li>
                         <li>Click "Apply" then "OK".</li>
                         <li>Try extracting the ZIP file again.</li>
+                        <br>
+                        <li>Alternatively, extract the ZIP file manually using a third-party tool like 7-Zip or WinRAR.
+                        </li>
                     </ol>
-                    <ol>
-                        <li>Alternatively, extract the ZIP file manually using a third-party tool like 7-Zip or WinRAR.</li>
-                    </ol>
-                    <p>After extraction, copy the folder containing <code>quotes.ini</code> and <code>quotes.lua</code> to your Rainmeter Skins folder (or create a new folder for them).</p>
+                    <p>After extraction, copy the folder containing <code>quotes.ini</code> and <code>quotes.lua</code>
+                        to your Rainmeter Skins folder (or create a new folder for them).</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -205,17 +212,18 @@ OnRefreshAction=[!CommandMeasure MeasureQuotes "GetQuote()"]
 
 [Variables]
 FontName=Segoe UI
-DefaultSize=26
+DefaultSize=18
 DefaultColor=255,255,255
 AuthorColor=180,180,180
 
 [MeasureQuotes]
 Measure=Script
-ScriptFile=#@#Scripts\\Quotes.lua
+ScriptFile=#@#Scripts\\quotes.lua
 
 [MeterQuote]
 Meter=String
 Text=#QuoteText#
+DynamicVariables=1
 FontFace=#QuoteFont#
 FontSize=#QuoteSize#
 FontColor=#QuoteColor#
@@ -229,10 +237,11 @@ Y=20
 
 [MeterAuthor]
 Meter=String
-Text=— #QuoteAuthor#
+Text=- #QuoteAuthor#
+DynamicVariables=1
 FontFace=#QuoteFont#
 FontSize=14
-FontColor=#AuthorColor#
+FontColor=#QuoteColor#
 StringAlign=#QuoteByAlign#
 AntiAlias=1
 X=20
@@ -316,6 +325,17 @@ Rainmeter Quote Skin Generator
             a.download = filename;
             a.click();
             URL.revokeObjectURL(a.href);
+        }
+
+        function normalizeForRainmeter(s) {
+            return String(s)
+                .replaceAll("’", "'")
+                .replaceAll("‘", "'")
+                .replaceAll("“", '"')
+                .replaceAll("”", '"')
+                .replaceAll("…", "...")
+                .replaceAll("–", "-")
+                .replaceAll("—", "-");
         }
 
         function getFontFamilyValue() {
@@ -455,36 +475,105 @@ Rainmeter Quote Skin Generator
 
         // ---------- Lua export ----------
         function generateQuotesLua(items) {
-            const lines = [];
-            lines.push("-- Auto-generated by Rainmeter Quote Skin Generator");
-            lines.push("-- Each entry stores quote, byline, font, color (RGB), and alignment");
-            lines.push("quotes = {");
+            console.log("generateQuotesLua called with", items.length, "items");
 
+            const lines = [];
+            lines.push("-- quotes.lua");
+            lines.push("-- Auto-generated by Rainmeter Quote Skin Generator");
+            lines.push("-- Expected by your quotes.ini:");
+            lines.push("--   [MeasureQuotes]");
+            lines.push("--   Measure=Script");
+            lines.push("--   ScriptFile=#@#Scripts\\quotes.lua");
+            lines.push("");
+
+            lines.push("quotes = {");
             for (const it of items) {
                 const rgb = hexToRgb(it.colourHex);
                 lines.push(
-                    `  { text="${escapeLuaString(it.quote)}", by="${escapeLuaString(it.byline)}", font="${escapeLuaString(it.fontFamily)}", color={${rgb.r},${rgb.g},${rgb.b}}, align="${escapeLuaString(it.quoteAlign)}", byAlign="${escapeLuaString(it.bylineAlign)}" },`
+                    `  { text="${escapeLuaString(normalizeForRainmeter(it.quote))}", by="${escapeLuaString(normalizeForRainmeter(it.byline))}", font="${escapeLuaString(it.fontFamily)}", color={${rgb.r},${rgb.g},${rgb.b}}, align="${escapeLuaString(it.quoteAlign)}", byAlign="${escapeLuaString(it.bylineAlign)}" },`
                 );
             }
-
             lines.push("}");
             lines.push("");
-            lines.push(`function GetQuote()
-                local day = tonumber(os.date("%j")) -- day of year (1–365)
-                local index = (day % #quotes) + 1
-                local q = quotes[index]
 
-                SKIN:Bang("!SetVariable", "QuoteText", q.text)
-                SKIN:Bang("!SetVariable", "QuoteAuthor", q.by or "")
-                SKIN:Bang("!SetVariable", "QuoteSize", 26)  -- Default size
-                SKIN:Bang("!SetVariable", "QuoteColor", string.format("%d,%d,%d", q.color[1] or 255, q.color[2] or 255, q.color[3] or 255))
-                SKIN:Bang("!SetVariable", "QuoteFont", q.font or "Segoe UI")
-                SKIN:Bang("!SetVariable", "QuoteAlign", q.align or "left")
-                SKIN:Bang("!SetVariable", "QuoteByAlign", q.byAlign or "right")
-            end`);
-            lines.push("");
+            lines.push(`
+                local function clampAlign(a)
+                if a == "left" or a == "center" or a == "right" or a == "justify" then return a end
+                return "left"
+                end
+
+                local function clampByAlign(a)
+                if a == "left" or a == "center" or a == "right" then return a end
+                return "right"
+                end
+
+                local function safeColor(c)
+                if type(c) == "table" and tonumber(c[1]) and tonumber(c[2]) and tonumber(c[3]) then
+                    local r = math.floor(tonumber(c[1]) or 255)
+                    local g = math.floor(tonumber(c[2]) or 255)
+                    local b = math.floor(tonumber(c[3]) or 255)
+                    if r < 0 then r = 0 elseif r > 255 then r = 255 end
+                    if g < 0 then g = 0 elseif g > 255 then g = 255 end
+                    if b < 0 then b = 0 elseif b > 255 then b = 255 end
+                    return r, g, b
+                end
+                return 255, 255, 255
+                end
+
+                local function chooseQuoteIndex()
+                local n = #quotes
+                if n <= 0 then return nil end
+                local day = tonumber(os.date("%j")) or 1
+                local idx = (day % n) + 1
+                return idx
+                end
+
+                function Initialize()
+                end
+
+                function GetQuote()
+                if type(quotes) ~= "table" or #quotes == 0 then
+                    SKIN:Bang("!SetVariable", "QuoteText", "No quotes found.")
+                    SKIN:Bang("!SetVariable", "QuoteAuthor", "")
+                    SKIN:Bang("!SetVariable", "QuoteFont", "Segoe UI")
+                    SKIN:Bang("!SetVariable", "QuoteColor", "255,255,255")
+                    SKIN:Bang("!SetVariable", "QuoteSize", "18")
+                    SKIN:Bang("!SetVariable", "QuoteAlign", "left")
+                    SKIN:Bang("!SetVariable", "QuoteByAlign", "right")
+                else
+                    local idx = chooseQuoteIndex()
+                    local q = quotes[idx] or quotes[1]
+
+                    local text = q.text or ""
+                    local by = q.by or ""
+                    local font = q.font or "Segoe UI"
+                    local r, g, b = safeColor(q.color)
+                    local align = clampAlign(q.align)
+                    local byAlign = clampByAlign(q.byAlign)
+
+                    SKIN:Bang("!SetVariable", "QuoteText", text)
+                    SKIN:Bang("!SetVariable", "QuoteAuthor", by)
+                    SKIN:Bang("!SetVariable", "QuoteFont", font)
+                    SKIN:Bang("!SetVariable", "QuoteColor", string.format("%d,%d,%d", r, g, b))
+                    SKIN:Bang("!SetVariable", "QuoteSize", "18")
+                    SKIN:Bang("!SetVariable", "QuoteAlign", align)
+                    SKIN:Bang("!SetVariable", "QuoteByAlign", byAlign)
+                end
+
+                SKIN:Bang("!UpdateMeter", "MeterQuote")
+                SKIN:Bang("!UpdateMeter", "MeterAuthor")
+                SKIN:Bang("!Redraw")
+                end
+
+                function Update()
+                return 0
+                end
+                `.trim());
+
+            // ✅ IMPORTANT: return the final Lua file text
             return lines.join("\n");
         }
+
 
         // ---------- Wire up ----------
         if (form) {
@@ -549,6 +638,9 @@ Rainmeter Quote Skin Generator
                 }
 
                 try {
+                    if (typeof JSZip === 'undefined') {
+                        throw new Error("JSZip library not loaded. Please check your internet connection.");
+                    }
                     // Update the lua file first
                     if (luaFileHandle) {
                         await updateLuaFile(packageItems);
@@ -557,10 +649,19 @@ Rainmeter Quote Skin Generator
                     // Generate ZIP
                     const zip = new JSZip();
                     const lua = generateQuotesLua(packageItems);
-                    zip.file("quotes.lua", lua);
-                    zip.file("quotes.ini", INI_CONTENT);
-                    zip.file("README.txt", README_CONTENT);
 
+                    const root = zip.folder("RainmeterQuoteSkin");
+
+                    root.file("quotes.ini", INI_CONTENT);
+
+                    root
+                        .folder("@Resources")
+                        .folder("Scripts")
+                        .file("quotes.lua", lua);
+
+                    root.file("README.txt", README_CONTENT);
+
+                    console.log("Lua length:", lua?.length, "first 100:", lua?.slice(0, 100));
                     const zipBlob = await zip.generateAsync({
                         type: "blob",
                         compression: "DEFLATE",
