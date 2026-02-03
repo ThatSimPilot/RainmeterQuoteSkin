@@ -8,10 +8,49 @@ quotes = {
   { text="Mixed Quote", by="Mixed", font="Segoe Script", color={255,255,255}, align="left", byAlign="right" },
 }
 
+local STATE_FILE = nil
+
 local function safeNumber(v, fallback)
   local n = tonumber(v)
   if n == nil then return fallback end
   return n
+end
+
+local function nQuotes()
+  return (type(quotes) == "table") and #quotes or 0
+end
+
+local function trim(s)
+  local t = s or ""
+  t = t:gsub("^%s+", "")
+  t = t:gsub("%s+$", "")
+  return t
+end
+
+local function splitCSVInts(s)
+  s = trim(s)
+  if s == "" then return {} end
+  local out = {}
+  for part in string.gmatch(s, "([^,]+)") do
+    local n = tonumber(trim(part))
+    if n ~= nil then table.insert(out, n) end
+  end
+  return out
+end
+
+local function joinCSVInts(t)
+  local parts = {}
+  for i = 1, #t do
+    parts[#parts + 1] = tostring(t[i])
+  end
+  return table.concat(parts, ",")
+end
+
+local function shuffle(t)
+  for i = #t, 2, -1 do
+    local j = math.random(i)
+    t[i], t[j] = t[j], t[i]
+  end
 end
 
 local function safeColor(c)
@@ -20,7 +59,7 @@ local function safeColor(c)
     local g = math.floor(safeNumber(c[2], 255))
     local b = math.floor(safeNumber(c[3], 255))
     if r < 0 then r = 0 elseif r > 255 then r = 255 end
-    if g < 0 then g = 0 elseif g > 255 then g = 0 elseif g > 255 then g = 255 end
+    if g < 0 then g = 0 elseif g > 255 then g = 255 end
     if b < 0 then b = 0 elseif b > 255 then b = 255 end
     return r, g, b
   end
@@ -38,10 +77,6 @@ local function computeX(alignTop, baseX, width)
   if alignTop == "RightTop" then return baseX + width end
   if alignTop == "CenterTop" then return baseX + (width / 2) end
   return baseX
-end
-
-local function nQuotes()
-  return (type(quotes) == "table") and #quotes or 0
 end
 
 local function positionAuthorBelowQuote()
@@ -105,28 +140,89 @@ local function applyQuote(idx)
   SKIN:Bang("!Redraw")
 end
 
+local function todayStamp()
+  return os.date("%Y%m%d")
+end
+
+local function writeState(lastDay, bagStr, currentIdx)
+  SKIN:Bang("!WriteKeyValue", "Variables", "LastDayStamp", tostring(lastDay or "0"), STATE_FILE)
+  SKIN:Bang("!WriteKeyValue", "Variables", "Bag", bagStr or "", STATE_FILE)
+  SKIN:Bang("!WriteKeyValue", "Variables", "CurrentIndex", tostring(currentIdx or "0"), STATE_FILE)
+end
+
+local function loadBagOrRefill()
+  local n = nQuotes()
+  if n <= 0 then return {} end
+
+  local bagVar = SKIN:GetVariable("Bag") or ""
+  local bag = splitCSVInts(bagVar)
+
+  -- Remove invalid indices (in case quote count changed)
+  local cleaned = {}
+  for i = 1, #bag do
+    local v = bag[i]
+    if v >= 1 and v <= n then cleaned[#cleaned + 1] = v end
+  end
+  bag = cleaned
+
+  if #bag == 0 then
+    for i = 1, n do bag[#bag + 1] = i end
+    shuffle(bag)
+  end
+
+  return bag
+end
+
+local function popNextIndex()
+  local n = nQuotes()
+  if n <= 0 then return 0 end
+
+  local bag = loadBagOrRefill()
+  local idx = bag[#bag]
+  bag[#bag] = nil
+
+  local bagStr = joinCSVInts(bag)
+  local day = todayStamp()
+
+  SKIN:Bang("!SetVariable", "Bag", bagStr)
+  SKIN:Bang("!SetVariable", "CurrentIndex", tostring(idx))
+  SKIN:Bang("!SetVariable", "LastDayStamp", tostring(day))
+
+  writeState(day, bagStr, idx)
+  return idx
+end
+
+local function showNewQuote(reason)
+  local idx = popNextIndex()
+  applyQuote(idx)
+end
+
 function Initialize()
+  STATE_FILE = SKIN:GetVariable("@") .. "State.inc"
+
   local n = nQuotes()
   if n <= 0 then
     applyQuote(0)
     return
   end
 
-  -- Seed randomness each load/refresh
+  -- Seed randomness once per load/refresh
   math.randomseed(os.time())
   math.random(); math.random(); math.random()
 
-  -- Optional: avoid repeating the immediately previous quote within the same session
-  local last = safeNumber(SKIN:GetVariable("LastIndex"), 0)
-  local idx = math.random(1, n)
-  if n > 1 and idx == last then
-    idx = (idx % n) + 1
-  end
-
-  SKIN:Bang("!SetVariable", "LastIndex", tostring(idx))
-  applyQuote(idx)
+  -- Always show a new quote on refresh/reload
+  showNewQuote("refresh")
 end
 
 function Update()
+  -- Called every skin update tick.
+  -- If the day changed since last recorded day, advance automatically.
+  local stored = tostring(SKIN:GetVariable("LastDayStamp") or "0")
+  local now = todayStamp()
+
+  if stored ~= now then
+    showNewQuote("daychange")
+  end
+
   return 0
 end
