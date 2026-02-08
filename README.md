@@ -10,6 +10,8 @@ The skin supports:
 
 Built for simplicity, reliability, and zero external dependencies inside Rainmeter.
 
+Quotes can be edited at https://thatsimpilot.github.io/RainmeterQuoteSkin/
+
 ---
 
 ## Features
@@ -107,8 +109,5 @@ Each quote entry supports:
 ---
 
 ## License
-
-This project is licensed under the **MIT License**.  
-You are free to use, modify, and distribute it, including for commercial projects.
-
-See the `LICENSE` file for details.
+Code and logic are licensed under the MIT License -> See `LICENCE-MIT`.
+Skin layout and visual presentation are licensed under Creative Commons Attribution 4.0 -> See `LICENSE-CC`.

@@ -270,6 +270,44 @@ const clearPackageBtn = document.getElementById("clearPackage");
 const uploadPackageBtn = document.getElementById("uploadPackageBtn");
 const uploadPackageInput = document.getElementById("uploadPackageInput");
 
+// ---------- First-time setup modal ----------
+const FIRST_TIME_KEY = "rmqs_first_time_modal_dismissed_v1";
+
+(function showFirstTimeModal() {
+  // Only show once per browser unless reset
+  const dismissed = localStorage.getItem(FIRST_TIME_KEY) === "1";
+  if (dismissed) return;
+
+  const modalEl = document.getElementById("firstTimeModal");
+  if (!modalEl || typeof bootstrap === "undefined") return;
+
+  const modal = new bootstrap.Modal(modalEl, {
+    backdrop: "static", // force a choice
+    keyboard: false
+  });
+
+  // Show it immediately on first load
+  modal.show();
+
+  const dontShow = document.getElementById("dontShowAgain");
+  const continueBtn = document.getElementById("firstTimeContinueBtn");
+
+  function maybePersistDismissal() {
+    // Default behaviour: if they don’t tick, it will show again next time
+    if (dontShow && dontShow.checked) {
+      localStorage.setItem(FIRST_TIME_KEY, "1");
+    }
+  }
+
+  if (continueBtn) {
+    continueBtn.addEventListener("click", maybePersistDismissal);
+  }
+
+  // Also persist if they close via the X button
+  modalEl.addEventListener("hide.bs.modal", maybePersistDismissal);
+})();
+
+
 // ---------- Helpers ----------
 function escapeHtml(s) {
     return String(s)
