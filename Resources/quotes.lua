@@ -3,28 +3,28 @@
 -- Expected by your quotes.ini:
 --   [MeasureQuotes]
 --   Measure=Script
---   ScriptFile=#@#Scripts\quotes.lua
+--   ScriptFile=#@#Scripts\\quotes.lua
 
 quotes = {
-  { text="Enjoy the butterflies. Enjoy being naive. Enjoy the nerves, the pressure, people not knowing your name, all that stuff.", by="Daniel Ricciardo DR3", font="Segoe Script", color={255,255,255}, align="left", byAlign="right" },
+  { text="Enjoy the butterflies. Enjoy being naive. Enjoy the nerves, the pressure, people not knowing your name, all that stuff.", by="Daniel Ricciardo -DR3", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
   { text="Be the change that you wish to see in the world.", by="Mahatma Gandhi", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
   { text="Imperfection is beauty, madness is genius and it's better to be absolutely ridiculous than absolutely boring.", by="Marilyn Monroe", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
   { text="I have not failed. I've just found 10,000 ways that won't work", by="Thomas A. Edison", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
-  { text="Success is not final, failure is not fatal: it is the courage to continue that counts.", by="Winston Churchill", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="The only way to do great work is to love what you do.", by="Steve Jobs", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="Whether you think you can or you think you can’t, you’re right.", by="Henry Ford", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="You miss 100% of the shots you don’t take.", by="Wayne Gretzky", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="Discipline is the bridge between goals and accomplishment.", by="Jim Rohn", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="The future belongs to those who prepare for it today.", by="Malcolm X", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="Dream big and dare to fail.", by="Norman Vaughan", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="It always seems impossible until it’s done.", by="Nelson Mandela", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="Do what you can, with what you have, where you are.", by="Theodore Roosevelt", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="The man who moves a mountain begins by carrying away small stones.", by="Confucius", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="Motivation gets you started. Discipline keeps you going.", by="Jim Ryun", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="What you do today can improve all your tomorrows.", by="Ralph Marston", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="Stay hungry. Stay foolish.", by="Steve Jobs", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="Believe you can and you’re halfway there.", by="Theodore Roosevelt", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
-  { text="Action is the foundational key to all success.", by="Pablo Picasso", font="Segoe Script", color={255,255,255}, align="Center", byAlign="Right" },
+  { text="Success is not final, failure is not fatal: it is the courage to continue that counts.", by="Winston Churchill", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="The only way to do great work is to love what you do.", by="Steve Jobs", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="Whether you think you can or you think you can't, you're right.", by="Henry Ford", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="You miss 100% of the shots you don't take.", by="Wayne Gretzky", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="Discipline is the bridge between goals and accomplishment.", by="Jim Rohn", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="The future belongs to those who prepare for it today.", by="Malcolm X", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="Dream big and dare to fail.", by="Norman Vaughan", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="It always seems impossible until it's done.", by="Nelson Mandela", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="Do what you can, with what you have, where you are.", by="Theodore Roosevelt", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="The man who moves a mountain begins by carrying away small stones.", by="Confucius", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="Motivation gets you started. Discipline keeps you going.", by="Jim Ryun", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="What you do today can improve all your tomorrows.", by="Ralph Marston", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="Stay hungry. Stay foolish.", by="Steve Jobs", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="Believe you can and you're halfway there.", by="Theodore Roosevelt", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
+  { text="Action is the foundational key to all success.", by="Pablo Picasso", font="Segoe Script", color={255,255,255}, align="left", byAlign="left" },
 }
 
 local function safeNumber(v, fallback)
@@ -187,6 +187,29 @@ local function applyQuote(idx)
   SKIN:Bang("!Redraw")
 end
 
+local function seedForSession()
+  -- seed randomness per session/load
+  local s = os.time()
+  local lu = safeNumber(SKIN:GetVariable("LastUnload"), 0)
+  math.randomseed(s + (lu % 100000))
+  -- throw away first few values (Lua RNG quirk)
+  math.random(); math.random(); math.random()
+end
+
+local function randomDifferent(n, exclude)
+  if n <= 1 then return 1 end
+  local idx = exclude
+  local guard = 0
+  while idx == exclude and guard < 20 do
+    idx = math.random(1, n)
+    guard = guard + 1
+  end
+  if idx == exclude then
+    idx = (exclude % n) + 1
+  end
+  return idx
+end
+
 function Initialize()
   local n = nQuotes()
   if n <= 0 then
@@ -194,22 +217,45 @@ function Initialize()
     return
   end
 
-  local refresh = isLikelyRefresh()
   local cycle = safeNumber(SKIN:GetVariable("CycleOnRefresh"), 1)
 
+  -- Ensure daily base is correct (and updated if the date changed)
   local base = ensureDailyBaseIndex()
+
+  -- Default to base unless we are cycling on load
   local cur = safeNumber(SKIN:GetVariable("CurrentIndex"), base)
 
-  if refresh and cycle == 1 then
-    cur = (cur % n) + 1
+  if cycle == 1 then
+    seedForSession()
+    cur = randomDifferent(n, cur)
     persist("CurrentIndex", cur)
   else
+    -- no cycling: stick to daily base/current
     persist("CurrentIndex", cur)
   end
 
   applyQuote(cur)
 end
 
+local lastMidnightCheck = 0
+
 function Update()
+  -- Only check once per minute (even if skin Update=1000)
+  local now = os.time()
+  if now - lastMidnightCheck < 60 then
+    return 0
+  end
+  lastMidnightCheck = now
+
+  -- If the day changed while the skin stayed loaded, switch to today's base quote
+  local today = os.date("%Y-%m-%d")
+  local storedDay = tostring(SKIN:GetVariable("DayStamp") or "")
+
+  if storedDay ~= today then
+    local base = ensureDailyBaseIndex()
+    persist("CurrentIndex", base)
+    applyQuote(base)
+  end
+
   return 0
 end
