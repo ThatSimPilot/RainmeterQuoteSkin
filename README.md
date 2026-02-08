@@ -29,11 +29,17 @@ Quotes can be edited at https://thatsimpilot.github.io/RainmeterQuoteSkin/
 ## Project Structure
 
 .
+
 ├── index.html # Web-based quote editor
+
 ├── js/
+
 │ └── app.js # Generator logic and Lua exporter
+
 ├── quotes.lua # Rainmeter script (generated)
+
 ├── quotes.ini # Rainmeter skin config
+
 └── README.md
 
 
