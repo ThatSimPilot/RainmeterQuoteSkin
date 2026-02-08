@@ -1,7 +1,7 @@
 [Variables]
-LastDayStamp=0
+LastDayStamp=
 Bag=
-CurrentIndex=0
+CurrentIndex=
 DayStamp=
 LastDailyBaseIndex=
 DailyBaseIndex=
