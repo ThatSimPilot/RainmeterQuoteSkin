@@ -54,7 +54,7 @@ Quotes can be edited at https://thatsimpilot.github.io/RainmeterQuoteSkin/
 1. Download the latest `.rmskin` release.
 2. Install it via Rainmeter.
 3. Generate your `quotes.lua` using the web tool.
-4. Replace the installed file at: `Documents\Rainmeter\Skins\RainmeterQuoteSkin\Resources\Scripts\quotes.lua`
+4. Replace the installed file at: `Documents\Rainmeter\Skins\RainmeterQuoteSkin\@Resources\Scripts\quotes.lua`
 5. Refresh the skin in Rainmeter.
 
 ---
